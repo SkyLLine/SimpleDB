@@ -1,5 +1,7 @@
 package simpledb;
 
+import javafx.scene.control.Tab;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -18,12 +20,30 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+    private Map<Integer, Table> map;
+
+    public class Table{
+
+        private DbFile dbFile;
+
+        private String name;
+
+        private String pkeyField;
+
+        public Table(DbFile dbFile, String name, String pkeyField){
+            this.dbFile = dbFile;
+            this.name = name;
+            this.pkeyField = pkeyField;
+        }
+
+    }
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+        map = new ConcurrentHashMap<>();
     }
 
     /**
@@ -37,6 +57,12 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        int id = file.getId();
+        if(map.containsKey(id)){
+            map.remove(id);
+        }
+        Table table = new Table(file, name, pkeyField);
+        map.put(id, table);
     }
 
     public void addTable(DbFile file, String name) {
