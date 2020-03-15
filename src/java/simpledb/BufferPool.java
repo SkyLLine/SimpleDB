@@ -1,5 +1,8 @@
 package simpledb;
 
+import javafx.scene.control.Tab;
+
+import javax.xml.crypto.Data;
 import java.io.*;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +22,11 @@ public class BufferPool {
     /** Bytes per page, including header. */
     private static final int DEFAULT_PAGE_SIZE = 4096;
 
+    private ConcurrentHashMap<PageId, Page>map;
+
+    private int numPages;
+
+
     private static int pageSize = DEFAULT_PAGE_SIZE;
     
     /** Default number of pages passed to the constructor. This is used by
@@ -33,6 +41,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        map = new ConcurrentHashMap<>();
     }
     
     public static int getPageSize() {
@@ -67,7 +77,17 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if(map.containsKey(pid)){
+            return map.get(pid);
+        }else{
+           DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+           Page page = dbFile.readPage(pid);
+           if(numPages <= map.size()){
+               evictPage();
+           }
+           map.put(pid,page);
+           return page;
+        }
     }
 
     /**
