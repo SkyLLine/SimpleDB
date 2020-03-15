@@ -36,6 +36,25 @@ public class Catalog {
             this.pkeyField = pkeyField;
         }
 
+        public String getname(){
+            return this.name;
+        }
+
+        public DbFile getFile(){
+            return this.dbFile;
+        }
+
+        public String getPkeyField(){
+            return this.pkeyField;
+        }
+
+        public Integer getId(){
+            return this.dbFile.getId();
+        }
+
+        public TupleDesc getTupleDesc(){
+            return this.dbFile.getTupleDesc();
+        }
     }
     /**
      * Constructor.
@@ -57,7 +76,7 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
-        int id = file.getId();
+        Integer id = file.getId();
         if(map.containsKey(id)){
             map.remove(id);
         }
@@ -86,7 +105,12 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        for(Table table:map.values()){
+            if(table.getname().equals(name)){
+                return table.getId();
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -96,8 +120,10 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
-        // some code goes here
-        return null;
+        if(map.containsKey(tableid)){
+            return map.get(tableid).getTupleDesc();
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -108,27 +134,37 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(map.containsKey(tableid)){
+            return map.get(tableid).getFile();
+        }
+        throw new NoSuchElementException();
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+        if(map.containsKey(tableid)){
+            return map.get(tableid).getPkeyField();
+        }
+        throw new NoSuchElementException();
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return map.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        if(map.containsKey(id)){
+            return map.get(id).getname();
+        }
+        throw new NoSuchElementException();
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        map.clear();
     }
     
     /**
