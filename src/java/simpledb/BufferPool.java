@@ -80,13 +80,14 @@ public class BufferPool {
         if(map.containsKey(pid)){
             return map.get(pid);
         }else{
-           DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-           Page page = dbFile.readPage(pid);
-           if(numPages <= map.size()){
+//            System.out.print(pid.getTableId()+" ");
+            DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = dbFile.readPage(pid);
+            if(numPages < map.size()){
                evictPage();
-           }
-           map.put(pid,page);
-           return page;
+            }
+            map.put(pid,page);
+            return page;
         }
     }
 

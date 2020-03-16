@@ -1,5 +1,6 @@
 package simpledb;
 
+import java.math.BigInteger;
 import java.util.*;
 import java.io.*;
 
@@ -21,6 +22,25 @@ public class HeapPage implements Page {
     byte[] oldData;
     private final Byte oldDataLock=new Byte((byte)0);
 
+    public static class HeapPageIterator<Tuple> implements Iterator<Tuple>{
+        List<Tuple> tupleList;
+        Iterator<Tuple> iterator;
+        public HeapPageIterator(List<Tuple> tuples){
+            this.tupleList = tuples;
+            iterator = tupleList.iterator();
+        }
+        public boolean hasNext(){
+            return iterator.hasNext();
+        }
+
+        public Tuple next(){
+            return iterator.next();
+        }
+
+        public void remove(){
+            throw new UnsupportedOperationException();
+        }
+    }
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
      * The format of a HeapPage is a set of header bytes indicating
@@ -66,7 +86,7 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        int tuplesnum = (int)Math.floor((BufferPool.getPageSize() * 8)/(td.getSize() * 8 +1));
+        int tuplesnum = (int)((BufferPool.getPageSize() * 8) / (td.getSize() * 8 +1));
         return tuplesnum;
 
     }
@@ -78,7 +98,7 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        int headerBytes =(int)Math.ceil(numSlots/8);
+        int headerBytes =(int)Math.ceil(numSlots / 8.0);
         return headerBytes;
                  
     }
@@ -285,8 +305,8 @@ public class HeapPage implements Page {
     public int getNumEmptySlots() {
         // some code goes here
         int num = 0;
-        for(int i = 0; i < numSlots; i++){
-            if(!isSlotUsed(i)){
+        for(int i = 0; i < getNumTuples(); i++){
+            if(!this.isSlotUsed(i)){
                 num++;
             }
         }
@@ -301,8 +321,7 @@ public class HeapPage implements Page {
         int num = i / 8;
         int fix = i % 8;
         int s = header[num];
-        int k = (s >> fix) % 2;
-        return k == 1;
+        return ((s>>fix)&1) == 1;
     }
 
     /**
@@ -313,26 +332,20 @@ public class HeapPage implements Page {
         // not necessary for lab1
     }
 
-    public class RealIterator<Tuple> implements Iterator<Tuple>{
-        List<Tuple> tuple;
-        Iterator<Tuple> iterator;
-        public RealIterator(List<Tuple>tuples){
-            tuple = new ArrayList<>();
-            tuple = tuples;
-            iterator = tuples.iterator();
-        }
-
-    }
     /**
      * @return an iterator over all tuples on this page (calling remove on this iterator throws an UnsupportedOperationException)
      * (note that this iterator shouldn't return tuples in empty slots!)
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        List<Tuple> tupleList= new ArrayList<>();
+        List<Tuple> tuple = new ArrayList<>();
         for(int i = 0; i < tuples.length; i++){
-            if()
+            if(isSlotUsed(i)){
+                tuple.add(tuples[i]);
+            }
         }
+
+        return new HeapPageIterator<>(tuple);
     }
 
 }
