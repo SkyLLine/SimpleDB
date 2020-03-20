@@ -77,6 +77,17 @@ public class Catalog {
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
         Integer id = file.getId();
+        if(name.equals(null)){
+            throw new IllegalArgumentException();
+        }
+        for(Table table: map.values()){
+            if(name.equals(table.getname())){
+                table.dbFile = file;
+                table.name = name;
+                table.pkeyField = pkeyField;
+                return ;
+            }
+        }
         if(map.containsKey(id)){
             map.remove(id);
         }
@@ -105,9 +116,12 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        for(Table table:map.values()){
-            if(table.getname().equals(name)){
-                return table.getId();
+        if(name == null){
+            throw new NoSuchElementException();
+        }
+        for(Table table : map.values()){
+            if(name.equals(table.getname())){
+                return table.dbFile.getId();
             }
         }
         throw new NoSuchElementException();
