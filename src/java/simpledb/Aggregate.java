@@ -11,14 +11,26 @@ public class Aggregate extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private OpIterator child;
+
+    private int afield;
+
+    private Aggregator agg;
+
+    private Aggregator.Op aop;
+
+    private OpIterator aggiterator;
+
+    private int gbfield;
+
     /**
      * Constructor.
-     * 
+     *
      * Implementation hint: depending on the type of afield, you will want to
      * construct an {@link IntegerAggregator} or {@link StringAggregator} to help
      * you with your implementation of readNext().
-     * 
-     * 
+     *
+     *
      * @param child
      *            The OpIterator that is feeding us tuples.
      * @param afield
@@ -30,7 +42,28 @@ public class Aggregate extends Operator {
      *            The aggregation operator to use
      */
     public Aggregate(OpIterator child, int afield, int gfield, Aggregator.Op aop) {
-	// some code goes here
+        // some code goes here
+        this.child = child;
+        this.gbfield = gfield;
+        this.afield = afield;
+        this.aop = aop;
+        init();
+    }
+
+    public void init(){
+        if(gbfield == Aggregator.NO_GROUPING){
+            if(child.getTupleDesc().getFieldType(afield) == Type.INT_TYPE){
+                agg = new IntegerAggregator(gbfield, null, afield, aop);
+            }else{
+                agg = new StringAggregator(gbfield, null, afield, aop);
+            }
+        }else{
+            if(child.getTupleDesc().getFieldType(afield) == Type.INT_TYPE){
+                agg = new IntegerAggregator(gbfield, child.getTupleDesc().getFieldType(gbfield), afield, aop);
+            }else{
+                agg = new StringAggregator(gbfield, child.getTupleDesc().getFieldType(gbfield), afield, aop);
+            }
+        }
     }
 
     /**
@@ -39,8 +72,8 @@ public class Aggregate extends Operator {
      *         {@link simpledb.Aggregator#NO_GROUPING}
      * */
     public int groupField() {
-	// some code goes here
-	return -1;
+        // some code goes here
+        return gbfield;
     }
 
     /**
@@ -49,16 +82,19 @@ public class Aggregate extends Operator {
      *         null;
      * */
     public String groupFieldName() {
-	// some code goes here
-	return null;
+        // some code goes here
+        if(gbfield == Aggregator.NO_GROUPING){
+            return null;
+        }
+        return child.getTupleDesc().getFieldName(gbfield);
     }
 
     /**
      * @return the aggregate field
      * */
     public int aggregateField() {
-	// some code goes here
-	return -1;
+        // some code goes here
+        return afield;
     }
 
     /**
@@ -66,25 +102,32 @@ public class Aggregate extends Operator {
      *         tuples
      * */
     public String aggregateFieldName() {
-	// some code goes here
-	return null;
+        // some code goes here
+        return child.getTupleDesc().getFieldName(afield);
     }
 
     /**
      * @return return the aggregate operator
      * */
     public Aggregator.Op aggregateOp() {
-	// some code goes here
-	return null;
+        // some code goes here
+        return aop;
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
-	return aop.toString();
+        return aop.toString();
     }
 
     public void open() throws NoSuchElementException, DbException,
-	    TransactionAbortedException {
-	// some code goes here
+            TransactionAbortedException {
+        // some code goes here
+        super.open();
+        child.open();
+        while(child.hasNext()){
+            agg.mergeTupleIntoGroup(child.next());
+        }
+        aggiterator = agg.iterator();
+        aggiterator.open();
     }
 
     /**
@@ -95,12 +138,16 @@ public class Aggregate extends Operator {
      * aggregate. Should return null if there are no more tuples.
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-	// some code goes here
-	return null;
+        // some code goes here
+        if(!aggiterator.hasNext()){
+            return null;
+        }
+        return aggiterator.next();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-	// some code goes here
+        // some code goes here
+        aggiterator.rewind();
     }
 
     /**
@@ -108,30 +155,55 @@ public class Aggregate extends Operator {
      * this will have one field - the aggregate column. If there is a group by
      * field, the first field will be the group by field, and the second will be
      * the aggregate value column.
-     * 
+     *
      * The name of an aggregate column should be informative. For example:
      * "aggName(aop) (child_td.getFieldName(afield))" where aop and afield are
      * given in the constructor, and child_td is the TupleDesc of the child
      * iterator.
      */
     public TupleDesc getTupleDesc() {
-	// some code goes here
-	return null;
+        // some code goes here
+        if(gbfield == Aggregator.NO_GROUPING){
+            Type[] typeAr = new Type[1];
+            String[] fieldAr = new String[1];
+            typeAr[0] = Type.INT_TYPE;
+            fieldAr[0] = child.getTupleDesc().getFieldName(afield);
+            TupleDesc td = new TupleDesc(typeAr, fieldAr);
+            return td;
+        }else{
+            Type[] typeAr = new Type[2];
+            String[] fieldAr = new String[2];
+            typeAr[0] = child.getTupleDesc().getFieldType(gbfield);
+            fieldAr[0] = child.getTupleDesc().getFieldName(gbfield);
+            typeAr[1] = Type.INT_TYPE;
+            fieldAr[1] = child.getTupleDesc().getFieldName(afield);
+            TupleDesc td = new TupleDesc(typeAr, fieldAr);
+            return td;
+        }
+//        Type[] typeAr = new Type[]
+
+//	return null;
     }
 
     public void close() {
-	// some code goes here
+        // some code goes here
+        aggiterator.close();
+        child.close();
+        super.close();
     }
 
     @Override
     public OpIterator[] getChildren() {
-	// some code goes here
-	return null;
+        // some code goes here
+        OpIterator[] opt = new OpIterator[1];
+        opt[0] = child;
+        return opt;
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
-	// some code goes here
+        // some code goes here
+        child = children[0];
     }
-    
+
 }

@@ -9,7 +9,7 @@ import java.util.*;
  * size, and the file is simply a collection of those pages. HeapFile works
  * closely with HeapPage. The format of HeapPages is described in the HeapPage
  * constructor.
- * 
+ *
  * @see simpledb.HeapPage#HeapPage
  * @author Sam Madden
  */
@@ -17,7 +17,7 @@ public class HeapFile implements DbFile {
 
     /**
      * Constructs a heap file backed by the specified file.
-     * 
+     *
      * @param f
      *            the file that stores the on-disk backing store for this heap
      *            file.
@@ -109,7 +109,7 @@ public class HeapFile implements DbFile {
 
     /**
      * Returns the File backing this HeapFile on disk.
-     * 
+     *
      * @return the File backing this HeapFile on disk.
      */
     public File getFile() {
@@ -123,7 +123,7 @@ public class HeapFile implements DbFile {
      * HeapFile has a "unique id," and that you always return the same value for
      * a particular HeapFile. We suggest hashing the absolute file name of the
      * file underlying the heapfile, i.e. f.getAbsoluteFile().hashCode().
-     * 
+     *
      * @return an ID uniquely identifying this HeapFile.
      */
     public int getId() {
@@ -134,7 +134,7 @@ public class HeapFile implements DbFile {
 
     /**
      * Returns the TupleDesc of the table stored in this DbFile.
-     * 
+     *
      * @return TupleDesc of this DbFile.
      */
     public TupleDesc getTupleDesc() {
@@ -166,6 +166,14 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        RandomAccessFile RAF = new RandomAccessFile(this.f,"rw");
+        HeapPageId pid = (HeapPageId)(page.getId());
+        int offset = BufferPool.getPageSize() * numPages();
+        byte[] bytes = new byte[BufferPool.getPageSize()];
+        bytes = page.getPageData();
+        RAF.seek(offset);
+        RAF.write(bytes);
+        RAF.close();
     }
 
     /**
@@ -180,16 +188,46 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
+        ArrayList<Page> pages = new ArrayList<>();
+        int s = 0;
+        for(int i = 0; i < numPages(); i++){
+            HeapPageId pid = new HeapPageId(getId(), i);
+            HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+            if(page.getNumEmptySlots() != 0){
+                page.insertTuple(t);
+                page.markDirty(true, tid);
+                pages.add(page);
+                break;
+            }else{
+                s++;
+            }
+        }
+        if(s == numPages()){
+//            System.out.print(s);
+            HeapPageId pid = new HeapPageId(getId(), numPages());
+            byte[] b = new byte[BufferPool.getPageSize()];
+            HeapPage page = new HeapPage(pid,b);
+            page.insertTuple(t);
+            page.markDirty(false, tid);
+            writePage(page);
+            pages.add(page);
+
+
+        }
         // not necessary for lab1
+        return pages;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
+        HeapPageId pid = (HeapPageId)t.getRecordId().getPageId();
+        HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+        page.deleteTuple(t);
+
         // not necessary for lab1
+        return new ArrayList<Page>();
     }
 
     // see DbFile.java for javadocs

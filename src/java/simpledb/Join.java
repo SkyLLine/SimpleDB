@@ -134,7 +134,7 @@ public class Join extends Operator {
     private Tuple t1 = null;
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        while (child1.hasNext()){
+        while (child1.hasNext() || child2.hasNext()){
             if(!child2.hasNext() || t1 == null){
                 child2.rewind();
                 t1 = child1.next();
@@ -171,6 +171,21 @@ public class Join extends Operator {
         // some code goes here
         children[0] = child1;
         children[1] = child2;
+    }
+
+    public static Tuple mergeTuple(Tuple left, Tuple right) {
+
+        TupleDesc tmp = TupleDesc.merge(left.getTupleDesc(), right.getTupleDesc());
+        int num1 = left.getTupleDesc().numFields(), num2 = right.getTupleDesc().numFields();
+        Tuple output = new Tuple(tmp);
+        for (int i = 0; i < num1; i++)
+            output.setField(i, left.getField(i));
+
+        for (int i = 0; i < num2; i++)
+            output.setField(i + num1, right.getField(i));
+//        output.setRecordId(left.getRecordId());
+
+        return output;
     }
 
 }

@@ -213,9 +213,9 @@ public class TupleDesc implements Serializable {
                     if(!(items.get(i).fieldType == s.items.get(i).fieldType)){
                         return false;
                     }
-                    if(!(items.get(i).fieldName == s.items.get(i).fieldName)){
-                        return false;
-                    }
+//                    if(!(items.get(i).fieldName == s.items.get(i).fieldName)){
+//                        return false;
+//                    }
                 }
                 return true;
             }
