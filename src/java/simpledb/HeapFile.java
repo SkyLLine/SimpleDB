@@ -168,7 +168,7 @@ public class HeapFile implements DbFile {
         // not necessary for lab1
         RandomAccessFile RAF = new RandomAccessFile(this.f,"rw");
         HeapPageId pid = (HeapPageId)(page.getId());
-        int offset = BufferPool.getPageSize() * numPages();
+        int offset = BufferPool.getPageSize() * page.getId().getPageNumber();
         byte[] bytes = new byte[BufferPool.getPageSize()];
         bytes = page.getPageData();
         RAF.seek(offset);
