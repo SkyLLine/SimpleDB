@@ -815,7 +815,6 @@ public class BTreeFile implements DbFile {
 		dirtypages.put(page.pid,page);
 		dirtypages.put(leftSibling.pid,leftSibling);
 		dirtypages.put(parent.pid, parent);
-		System.out.print(1);
 	}
 
 	/**
@@ -938,6 +937,31 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+
+	protected BTreeLeafPage findReverseLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
+									   Field f) throws DbException, TransactionAbortedException {
+		if(pid.pgcateg() == BTreePageId.LEAF){
+			return (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+		}
+		Iterator<BTreeEntry> btiterator = new BTreeInternalPageReverseIterator((BTreeInternalPage) getPage(tid, dirtypages, pid, perm));
+		while(btiterator.hasNext()){
+			BTreeEntry bt = btiterator.next();
+			if(f == null){
+				return  findLeafPage(tid, dirtypages, bt.getRightChild(), perm, f);
+			}
+			else{
+				if(bt.getKey().compare(Op.GREATER_THAN_OR_EQ, f)){
+					return findLeafPage(tid, dirtypages, bt.getRightChild(), perm, f);
+				}
+				else if(!btiterator.hasNext()){
+					return findLeafPage(tid, dirtypages, bt.getLeftChild(), perm, f);
+				}
+			}
+
+		}
+		return null;
+
+	}
 	protected void mergeInternalPages(TransactionId tid, HashMap<PageId, Page> dirtypages,
 			BTreeInternalPage leftPage, BTreeInternalPage rightPage, BTreeInternalPage parent, BTreeEntry parentEntry)
 					throws DbException, IOException, TransactionAbortedException {
@@ -1172,6 +1196,58 @@ public class BTreeFile implements DbFile {
 		return getPage(tid, dirtypages, newPageId, Permissions.READ_WRITE);
 	}
 
+	static class BTreeFileReverseIterator extends AbstractDbFileIterator{
+		Iterator<Tuple> it = null;
+		BTreeLeafPage curp = null;
+
+		TransactionId tid;
+		BTreeFile f;
+
+		public BTreeFileReverseIterator(BTreeFile f, TransactionId tid){
+			this.f = f;
+			this.tid = tid;
+		}
+		@Override
+		protected Tuple readNext() throws DbException, TransactionAbortedException {
+			if (it != null && !it.hasNext())
+				it = null;
+
+			while (it == null && curp != null) {
+				BTreePageId nextp = curp.getLeftSiblingId();
+				if (nextp == null) {
+					curp = null;
+				} else {
+					curp = (BTreeLeafPage) Database.getBufferPool().getPage(tid,
+							nextp, Permissions.READ_ONLY);
+					it = curp.reverseIterator();
+					if (!it.hasNext())
+						it = null;
+				}
+			}
+
+			if (it == null)
+				return null;
+			return it.next();
+		}
+
+		@Override
+		public void open() throws DbException, TransactionAbortedException {
+			BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
+					tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
+			BTreePageId root = rootPtr.getRootId();
+			curp = f.findReverseLeafPage(tid, new HashMap<PageId, Page>(), root, Permissions.READ_ONLY, null);
+			it = curp.reverseIterator();
+
+
+		}
+
+		@Override
+		public void rewind() throws DbException, TransactionAbortedException {
+			close();
+			open();
+		}
+	}
+
 	/**
 	 * Mark a page in this BTreeFile as empty. Find the corresponding header page 
 	 * (create it if needed), and mark the corresponding slot in the header page as empty.
@@ -1185,6 +1261,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+
 	protected void setEmptyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, int emptyPageNo)
 			throws DbException, IOException, TransactionAbortedException {
 
