@@ -326,6 +326,10 @@ public class HeapPage implements Page {
         }
     }
 
+    public boolean dirty(){
+        return dirtyvalue;
+    }
+
     /**
      * Returns the tid of the transaction that last dirtied this page, or null if the page is not dirty
      */
