@@ -27,6 +27,10 @@ public class Lock {
         return this.tid;
     }
 
+    public void setLockType(Permissions perm){
+        this.perm = perm;
+    }
+
     public void modify(boolean modi)
     {
         this.isread = modi;

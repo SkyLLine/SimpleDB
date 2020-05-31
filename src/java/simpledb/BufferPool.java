@@ -1,9 +1,11 @@
 package simpledb;
 
+import java.awt.*;
 import java.io.*;
 
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -88,22 +90,23 @@ public class BufferPool {
         if(!Transactions.containsKey(tid)){
             Transactions.put(tid, System.currentTimeMillis());
         }
-        long timestart = System.currentTimeMillis();
-        long timeout = new Random().nextInt(2000)+1000;
-
+        long timeout = new Random().nextInt(2000) + 1000;
         boolean result = lockManager.grantLock(tid, pid, perm);
+        long starttime = System.currentTimeMillis();
         while(!result){
             long now = System.currentTimeMillis();
-            if(now - timestart >timeout){
+            if(now - starttime >timeout){
                 throw new TransactionAbortedException();
             }
+            long s1 = System.currentTimeMillis();
             result = lockManager.grantLock(tid, pid, perm);
+            long s2 = System.currentTimeMillis()-s1;
+            System.out.print(s2);
         }
 
         if(map.containsKey(pid)){
             return map.get(pid);
         }else{
-//            System.out.print(pid.getTableId()+" ");
             DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbFile.readPage(pid);
             if(numPages == map.size()){
@@ -163,6 +166,7 @@ public class BufferPool {
             throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        Transactions.remove(tid);
         if(commit == true){
             flushPages(tid);
         }else{
@@ -196,13 +200,11 @@ public class BufferPool {
         // not necessary for lab1
         List<Page> a = new ArrayList<>();
         DbFile file =  Database.getCatalog().getDatabaseFile(tableId);
-//        System.out.print(3);
         a = file.insertTuple(tid, t);
         for(int i = 0; i < a.size(); i++){
             a.get(i).markDirty(true, tid);
             map.put(a.get(i).getId(),a.get(i));
         }
-//        System.out.print(4);
     }
 
     /**
@@ -291,22 +293,13 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        int num = 0;
-        for(PageId pid : map.keySet()){
-            if(((HeapPage)map.get(pid)).dirty()){
-                num++;
+        for (Page page:map.values()) {
+            if(page.isDirty() == null){
+                map.remove(page.getId());
+                return;
             }
         }
-        if(num == numPages){
-            throw new DbException("");
-        }
-        for(PageId pid : map.keySet()){
-            Page page = map.get(pid);
-            if(!((HeapPage)page).dirty()){
-                map.remove(page);
-                break;
-            }
-        }
+        throw new DbException("all pages are dirty, NO STEAL!");
     }
 
     private class LockManager{
@@ -403,47 +396,39 @@ public class BufferPool {
             }
         }
 
-        public boolean grantLock(TransactionId tid, PageId pid, Permissions perm){
+        public synchronized boolean grantLock(TransactionId tid, PageId pid, Permissions perm){
             ArrayList<Lock> list =lockPageMap.get(pid);
-            if(perm == Permissions.READ_ONLY){
-                if(list != null && list.size() != 0){
-                    if(list.size() == 1){
-                        Lock lock =list.iterator().next();
-                        if(lock.getId().equals(tid)){
-                              return lock.getPerm() == Permissions.READ_ONLY || lock(pid,tid, perm);
-                            }else{
-                                return lock.getPerm() == Permissions.READ_ONLY && lock(pid, tid, Permissions.READ_ONLY);
-                            }
-                    }else{
-                        for(Lock l : list){
-                            if(l.getPerm() == Permissions.READ_WRITE){
-                                return l.getId().equals(tid);
-                            }else if(l.getId().equals(tid)){
-                                return true;
-                            }
-                        }
-                        return lock(pid, tid, Permissions.READ_ONLY);
-                    }
-                }else{
-                    return lock(pid, tid, Permissions.READ_ONLY);
-                }
-            }else{
-                if(list != null && list.size() != 0){
-                    if(list.size() == 1) {
-                        Lock lock = list.iterator().next();
-                        return lock.getId().equals(tid) && (lock.getPerm() == Permissions.READ_WRITE || lock(pid, tid, Permissions.READ_WRITE));
-                        }else{
-                        if(list.size() == 2){
-                            for(Lock l : list){
-                                if(l.getId().equals(tid) && l.getPerm() == Permissions.READ_WRITE){
-                                    return true;
-                                }
-                            }
+            boolean fuck;
+            if(perm == Permissions.READ_ONLY)fuck = true;
+            else fuck = false;
+            if(list == null || list.size() == 0){
+                Lock lock = new Lock(tid, fuck, perm);
+                if(list == null)list = new ArrayList<>();
+                list.add(lock);
+                lockPageMap.put(pid, list);
+                return true;
+            }
+            for(Lock lock : list){
+                if(lock.getId().equals(tid)){
+                    if(lock.getPerm().equals(perm))return true;
+                    if(lock.getPerm().equals(Permissions.READ_WRITE))return true;
+                    else{
+                        if(list.size() == 1){
+                            lock.setLockType(Permissions.READ_WRITE);
+                            return true;
                         }
                         return false;
                     }
+                }
+            }
+            if(list.get(0).getPerm().equals(Permissions.READ_WRITE))return false;
+            else{
+                if(perm.equals(Permissions.READ_ONLY)){
+                    Lock lock = new Lock(tid, fuck, perm);
+                    list.add(lock);
+                    return true;
                 }else{
-                    return lock(pid, tid, Permissions.READ_WRITE);
+                    return false;
                 }
             }
         }
